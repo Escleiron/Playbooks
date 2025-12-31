@@ -1,0 +1,235 @@
+---
+- hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    status: unknown
+
+  tasks:
+    - name: Verify filesystems are in RW state.
+      block:
+        # Check if /var is in RO mode
+        - name: Check if /var is read-only
+          ansible.builtin.shell: "findmnt -no OPTIONS /var | grep -qw ro && echo RO || echo RW"
+          register: var_fs_status
+          failed_when: false
+
+        # Check if /tmp is in RO mode
+        - name: Check if /tmp is read-only
+          ansible.builtin.shell: "findmnt -no OPTIONS /tmp | grep -qw ro && echo RO || echo RW"
+          register: tmp_fs_status
+          failed_when: false
+
+        # Set the status of /var and /tmp as RO or RW
+        - name: Set /var and /tmp status as RW or RO
+          ansible.builtin.set_fact:
+            var_fs_status_ok: "{{ var_fs_status.stdout | trim }}"
+            tmp_fs_status_ok: "{{ tmp_fs_status.stdout | trim }}"
+
+        # Show the status of /var and /tmp
+        - name: Debug statuses of /var and /tmp
+          ansible.builtin.debug:
+            msg: "/var: {{ var_fs_status_ok }} /tmp: {{ tmp_fs_status_ok }}"
+        
+        # Set fault state if /var or /tmp are in RO mode
+        - name: Set failure variable in case of read-only
+          ansible.builtin.set_fact:
+            status: "failure"
+          when: var_fs_status_ok == "RO" or tmp_fs_status_ok == "RO"
+
+        # Set success status if everyone is in RW
+        - name: Set success variable if /var and /tmp are RW
+          ansible.builtin.set_fact:
+            status: "success"
+          when: var_fs_status_ok == "RW" and tmp_fs_status_ok == "RW"
+
+        - name: Default to failure if status is unknown
+          ansible.builtin.set_fact:
+            status: "failure"
+          when: status not in ['success', 'failure']
+
+        - name: Display interim status
+          ansible.builtin.debug:
+            msg: "Status after RO checks: {{ status }}"
+
+    - name: Filesystems cleanup.
+      block:
+        - name: Play for check /tmp usage
+          ansible.builtin.shell:
+            cmd: |
+              set -o pipefail
+              df --output=pcent /tmp | tail -1 | tr -d '%'
+            executable: /bin/bash
+          register: tmp_usage
+          changed_when: false
+
+        - name: Play for check /var usage
+          ansible.builtin.shell:
+            cmd: |
+              set -o pipefail
+              df --output=pcent /var | tail -1 | tr -d '%'
+            executable: /bin/bash
+          register: var_usage
+          changed_when: false
+
+         # Clean /tmp
+        - name: Play for clean up old files in /tmp except .sap*
+          ansible.builtin.find:
+            paths: /tmp
+            age: 3d
+            patterns: ["*", ".*"]
+            excludes: ".sap*"
+            file_type: any
+            recurse: true
+          register: old_tmp_files
+          when: tmp_usage.stdout | int >= 80
+
+        - name: Play for remove old files from /tmp
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            state: absent
+          loop: "{{ old_tmp_files.files }}"
+          when: tmp_usage.stdout | int >= 80
+
+        # Clean /var
+        - name: Play for ensure sosreport and collectl directories exist
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: directory
+            mode: '0755'
+            owner: root
+            group: root
+          loop:
+            - /var/log/collectl
+            - /var/log/sosreport
+          when: var_usage.stdout | int >= 80
+
+        - name: Play for find all files older than 3 days in sosreport
+          ansible.builtin.find:
+            paths: /var/log/sosreport/
+            age: 3d
+            file_type: file
+          register: old_sosreport_files
+          when: var_usage.stdout | int >= 80
+
+        - name: Play for find all files older than 3 days in collectl
+          ansible.builtin.find:
+            paths: /var/log/collectl/
+            age: 3d
+            file_type: file
+          register: old_collectl_files
+          when: var_usage.stdout | int >= 80
+
+        - name: Play for remove old files from collectl directory
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            state: absent
+          loop: "{{ old_collectl_files.files }}"
+          when: var_usage.stdout | int >= 80
+
+        - name: Play for remove old files from sosreport directory
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            state: absent
+          loop: "{{ old_sosreport_files.files }}"
+          when: var_usage.stdout | int >= 80
+
+          register: result
+          changed_when: false
+          ignore_errors: true
+
+        - name: Set success variable
+          ansible.builtin.set_fact:
+            status: "success"
+          when: result is defined and (result.failed is not defined or result.failed == false)
+
+      rescue:
+        - name: Set failure variable in case of any error
+          ansible.builtin.set_fact:
+            # This variable will be used to determine the status of the recovery action keep the value to failure
+            status: "failure"
+      
+      when: status == "success"
+
+    - name: Recovery action restart services.
+      block:
+        - name: Restart service cronyd. 
+          ansible.builtin.systemd:
+            state: restarted
+            name: chronyd
+          register: chronyd_restart
+          ignore_errors: true
+
+        - name: Set failure if any service failed
+          ansible.builtin.set_fact:
+            status: "failure"
+          when: chronyd_restart is failed
+
+
+      when: status != "failure"
+
+    - name: Recovery action sync datetime.
+      block:
+        - name: Force time synchronization with chronyd
+          ansible.builtin.shell: chronyc -a makestep
+          register: sync_result
+          changed_when: "'/*OK*/' in sync_result.stdout"
+
+        - name: Sync hardware clock to4 system clock (1/2)
+          ansible.builtin.command: hwclock --systohc
+
+        - name: Sync hardware clock to4 system clock (2/2)
+          ansible.builtin.command: hwclock --show
+          register: hwclock_sync_result
+
+        - name: Show synchronization result
+          ansible.builtin.debug:
+            msg: "Synchronization: {{ sync_result.stdout }} | HW clock: {{ hwclock_sync_result.stdout }}"
+
+        - name: Restart service centrifydc.
+          ansible.builtin.systemd:
+            name: centrifydc
+            state: restarted
+          register: centrify_restart
+          ignore_errors: true
+
+        - name: Pause of 30 seconds to sync datetime before restart Centrifydc.
+          ansible.builtin.pause:
+            seconds: 30
+  
+        - name: Set failure if any service failed
+          ansible.builtin.set_fact:
+            status: "failure"
+          when: centrify_restart is failed
+
+
+      when: status != "failure"
+
+    - name: Verify adclient + CentrifyDC connectivity and set status
+      block:
+        - name: Count /usr/sbin/adclient processes
+          ansible.builtin.shell: "ps -ef | grep -i /usr/sbin/adclient | grep -v grep | wc -l"
+          register: adclient_count
+          changed_when: false
+          failed_when: false
+
+        - name: Check if CentrifyDC mode is connected
+          ansible.builtin.shell: 'adinfo | grep -qE "CentrifyDC mode:\\s*connected"'
+          register: adinfo_check
+          changed_when: false
+          failed_when: false
+
+        - name: Set status based on adclient and CentrifyDC
+          ansible.builtin.set_fact:
+            status: "{{ 'success' if (adclient_count.stdout | int == 1 and adinfo_check.rc == 0) else 'failure' }}"
+
+        - name: Debug decision
+          ansible.builtin.debug:
+            msg: "adclient_count={{ adclient_count.stdout | int }}, adinfo_connected={{ adinfo_check.rc == 0 }}, status={{ status }}"
+        
+
+
+    # Display final status (failure/success) by splunk
+    - name: Display final status
+      ansible.builtin.debug:
+        msg: "The final status is: {{ status }}"

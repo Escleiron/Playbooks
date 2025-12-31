@@ -1,0 +1,68 @@
+---
+
+- name: Multipath Check.
+  hosts: all
+  become: yes
+  tasks:
+    - block:
+        - name: Get server type
+          ansible.builtin.command: /usr/sbin/dmidecode -s system-manufacturer
+          register: server_type
+          changed_when: false
+
+        - name: Verify if server is 'Virtual'
+          ansible.builtin.debug:
+            msg: "VMware, Inc."
+          when: server_type.stdout == "VMware, Inc."
+
+        - name: Initialize variable state according to server_type
+          ansible.builtin.set_fact:
+            status: "{{ 'success' if server_type.stdout == 'VMware, Inc.' else 'failure' }}"
+
+        - block:
+
+            - name: Get multipath output.
+              ansible.builtin.command: /usr/sbin/multipath -ll
+              register: multipath_output
+              changed_when: false
+              when: server_type.stdout != "VMware, Inc."
+
+            - name: Count total active paths.
+              ansible.builtin.set_fact:
+               total_paths: "{{ multipath_output.stdout_lines | select('search', 'active ready running') | length  }}"
+              when: server_type.stdout != "VMware, Inc." and multipath_output is defined
+
+            - name: Count total multipath disks.
+              ansible.builtin.set_fact:
+               total_disks: "{{ multipath_output.stdout_lines | select('search', 'mp') | length  }}"
+              when: server_type.stdout != "VMware, Inc." and multipath_output is defined
+
+            - name: Check if all disks have the same number of paths
+              ansible.builtin.set_fact:
+                check_status: "{{ (total_paths | int) // (total_disks | int) }}"
+              when: server_type.stdout != "VMware, Inc." and (total_disks | int) > 0
+
+# Verify operation
+            - name: Verify operation.
+              ansible.builtin.debug:
+                msg: "{{ check_status }}"
+              when: server_type.stdout != "VMware, Inc."
+
+
+            - name: Determine the outcome and assign the status
+              ansible.builtin.set_fact:
+                check_state: "{{ 'success' if check_status | int == 4 else 'failure' }}"
+                status: "{{ 'success' if check_status | int == 4 else omit }}"
+              when: server_type.stdout != "VMware, Inc."
+
+          rescue:
+           - name: Set failure variable in case of any error
+             ansible.builtin.set_fact:
+               status: "failure"
+             when: server_type.stdout != "VMware, Inc."
+
+#Verify Result
+    - name: Mostrar variable status
+      ansible.builtin.debug:
+        msg: "El valor de status es: {{ status }}"
+
