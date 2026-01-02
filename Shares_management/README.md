@@ -9,13 +9,3 @@ Los playbooks permiten:
 - Desmontar montajes NFS de forma controlada
 
 Todos los playbooks están pensados para ejecutarse con privilegios de **root**.
-
----
-
-## 📁 Contenido del directorio
-
-Shares_management/
-├── check_mounts.yml
-├── check_mounts_cifs_nfs.yml
-├── mount_shares.yml
-└── umount_NFS.yml
