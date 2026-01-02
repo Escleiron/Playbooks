@@ -73,12 +73,11 @@
           changed_when: false
 
          # Clean /tmp
-        - name: Play for clean up old files in /tmp except .sap*
+        - name: Play for clean up old files in /tmp
           ansible.builtin.find:
             paths: /tmp
             age: 3d
             patterns: ["*", ".*"]
-            excludes: ".sap*"
             file_type: any
             recurse: true
           register: old_tmp_files
