@@ -1,0 +1,27 @@
+---
+- hosts: all
+  become: true
+  vars:
+     fstab_host_pattern: "serverA|rkanserverB|serverC"
+
+  tasks:
+    - name: Obtener lista de puntos de montaje  NFS que coincidan con el source indicado
+      shell: mount -l|grep nfs |egrep '{{ fstab_host_pattern }}' | awk '{print $3}'
+      register: mount_output_nfs
+
+    - name: Mostrar los puntos de montaje encontrados
+      debug:
+        msg: "En {{ inventory_hostname }}, se encontraron estos puntos de montaje NFS: {{ mount_output_nfs.stdout_lines }}"
+      when: mount_output_nfs.stdout_lines | length > 0
+
+    - name: Obtener lista de puntos de montaje que coincidan con el source indicado
+      shell: mount -l|grep cifs |egrep '{{ fstab_host_pattern }}' | awk '{print $3}'
+      register: mount_output_cifs
+
+    - name: Mostrar los puntos de montaje encontrados
+      debug:
+        msg: "En {{ inventory_hostname }}, se encontraron estos puntos de montaje CIFS: {{ mount_output_cifs.stdout_lines }}"
+      when: mount_output_cifs.stdout_lines | length > 0
+
+
+
