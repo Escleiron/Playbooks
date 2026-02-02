@@ -31,13 +31,13 @@ Este repositorio está diseñado para '''tareas operativas''', '''ventanas de ma
 
 ## Inicio rápido (migración típica) 
 
-#Configurar los shares a buscar en <code>Checks/fstab_pattern.yml</code>.
-#Ejecutar <code>Checks/mount_state_snapshot.yml</code>.
-# Generar <code>fstab_host_pattern</code> usando <code>>Umount/generate_variable_host_pattern.sh</code>.
-# Revisar el patrón generado.
-# Ejecutar <code>Umount/umount_share.yml</code>.
-# Realizar la migración backend / actualización DNS.
-# Restaurar los mounts usando los playbooks de Mount.
+1. Configurar los shares a buscar en <code>Checks/fstab_pattern.yml</code>.
+2.Ejecutar <code>Checks/mount_state_snapshot.yml</code>.
+3. Generar <code>fstab_host_pattern</code> usando <code>>Umount/generate_variable_host_pattern.sh</code>.
+4. Revisar el patrón generado.
+5. Ejecutar <code>Umount/umount_share.yml</code>.
+6. Realizar la migración backend / actualización DNS.
+7. Restaurar los mounts usando los playbooks de Mount.
 
 ----
 
