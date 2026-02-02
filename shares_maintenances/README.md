@@ -6,9 +6,6 @@ en múltiples hosts Linux de forma segura, controlada y auditable.
 Este repositorio está diseñado para '''tareas operativas''', '''ventanas de mantenimiento''' y
 '''auditorías de infraestructura''', con una clara separación de responsabilidades.
 
-https://github.com/Escleiron/Playbooks/tree/main/Share_maintenance
-
-
 ----
 
 ## Estructura del repositorio
