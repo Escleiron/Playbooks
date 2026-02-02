@@ -41,19 +41,9 @@ Este repositorio está diseñado para '''tareas operativas''', '''ventanas de ma
 
 ----
 
-## Índice 
-
-- [🔍 Checks](#-checks)
-- [🔌 Umount](#-umount)
-- [🔗 Mount](#-mount)
-- [✏️ Modify (Optional)](#modify)
-
-----
-
 ## Checks 
 
-Este directorio contiene '''herramientas de solo lectura''' utilizadas para auditar y analizar
-el estado actual de los mounts NFS y CIFS en todos los hosts gestionados.
+Este directorio contiene '''herramientas de solo lectura''' utilizadas para auditar y analizar el estado actual de los mounts NFS y CIFS en todos los hosts gestionados.
 
 ### mount_state_snapshot.yml
 
