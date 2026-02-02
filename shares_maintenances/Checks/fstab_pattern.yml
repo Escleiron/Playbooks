@@ -1,0 +1,4 @@
+---
+#Define the source shares that what to search
+#example fstab_host_pattern: "serverA|serverB|serverC"
+fstab_host_pattern: "escleiron|pool_smb|chasis06nfs|chasis116nfs"

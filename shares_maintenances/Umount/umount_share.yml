@@ -1,0 +1,42 @@
+---
+- hosts: all
+  become: true
+  gather_facts: true
+
+  vars_files:
+    # Generated automatically from mount inventory
+    # Use ./generate_variable_host_patter.sh — do not edit manually unless you know why
+    - fstab_pattern.yml
+
+
+  tasks:
+
+    # -----------------
+    # Unmount NFS mounts
+    # -----------------
+    - name: Unmount NFS filesystems from selected sources
+      mount:
+        path: "{{ item.mount }}"
+        state: unmounted
+      loop: "{{ ansible_mounts }}"
+      when:
+        - item.fstype is search('^nfs')
+        - item.device is search(fstab_host_pattern)
+      tags:
+        - nfs
+        - all_types
+
+    # -----------------
+    # Unmount CIFS mounts
+    # -----------------
+    - name: Unmount CIFS filesystems from selected sources
+      mount:
+        path: "{{ item.mount }}"
+        state: unmounted
+      loop: "{{ ansible_mounts }}"
+      when:
+        - item.fstype == 'cifs'
+        - item.device is search(fstab_host_pattern)
+      tags:
+        - cifs
+        - all_types

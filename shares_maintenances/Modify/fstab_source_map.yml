@@ -1,0 +1,8 @@
+---
+# Map: old_source -> new_source
+fstab_source_map:
+  #"sappool.roche.com:/ifs/data/FMIX0250": "SOURCEB:/test"
+  #"SOURCEA:/tmp":  "SOURCEC:/tmp"
+  #"SOURCEA:/test": "SOURCEC:/test"
+  #SOURCEC:/app":  "SOURCED:/app"
+

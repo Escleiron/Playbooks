@@ -1,0 +1,19 @@
+- hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Load mount snapshot
+      delegate_to: localhost
+      become: false
+      include_vars:
+        file: mount_snapshot.yml
+        name: snapshot
+
+    - name: Mount paths defined in fstab
+      command: mount {{ item.path }}
+      loop: "{{ snapshot.mounts[inventory_hostname] | default([]) }}"
+      register: mount_cmd
+      changed_when: "'already mounted' not in mount_cmd.stdout"
+      failed_when: mount_cmd.rc != 0 and
+                   'already mounted' not in mount_cmd.stderr

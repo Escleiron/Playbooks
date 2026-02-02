@@ -1,0 +1,7 @@
+---
+- hosts: all
+  become: true
+
+  tasks:
+    - name: Mount all shares from /etc/fstab
+      command: mount -a

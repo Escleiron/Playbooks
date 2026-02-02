@@ -1,0 +1,57 @@
+---
+- hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    fstab_backup_path: >-
+      /etc/fstab.backup_{{ ansible_date_time.date }}_{{ ansible_date_time.time | replace(':','-') }}
+
+  vars_files:
+    - fstab_source_map.yml
+
+  tasks:
+
+    # -------------------------------------------------
+    # Detect fstab entries that need replacement
+    # -------------------------------------------------
+    - name: Detect fstab entries to be updated
+      set_fact:
+        fstab_entries_to_update: >-
+          {{
+            fstab_entries_to_update | default([]) + [
+              {
+                "old_src": item,
+                "new_src": fstab_source_map[item]
+              }
+            ]
+          }}
+      loop: "{{ fstab_source_map.keys() | list }}"
+
+    - name: Show planned fstab changes
+      debug:
+        var: fstab_entries_to_update
+
+    # -------------------------------------------------
+    # Backup /etc/fstab (timestamped)
+    # -------------------------------------------------
+    - name: Backup /etc/fstab with timestamp
+      copy:
+        src: /etc/fstab
+        dest: "{{ fstab_backup_path }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: '0644'
+      when: fstab_entries_to_update | length > 0
+
+    # -------------------------------------------------
+    # Update /etc/fstab (source replacement only)
+    # -------------------------------------------------
+    - name: Replace source entries in /etc/fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^{{ item.old_src | regex_escape }}(\s+)'
+        replace: '{{ item.new_src }}\1'
+      loop: "{{ fstab_entries_to_update }}"
+      when: fstab_entries_to_update | length > 0

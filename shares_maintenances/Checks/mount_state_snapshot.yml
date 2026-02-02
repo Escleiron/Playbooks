@@ -1,0 +1,67 @@
+---
+- hosts: all
+  become: true
+  gather_facts: true
+
+  vars_files:
+    - fstab_pattern.yml
+
+
+  tasks:
+
+    # -------------------------------------------------
+    # Per-host inventory (plain text lines)
+    # -------------------------------------------------
+    - name: Initialize per-host mount inventory lines
+      set_fact:
+        mount_inventory_lines: []
+
+    - name: Collect NFS mounts (text format)
+      set_fact:
+        mount_inventory_lines: >-
+          {{ mount_inventory_lines + [
+            "%-30s %-80s %-30s %s" | format(
+              inventory_hostname,
+              item.device,
+              item.mount,
+              "NFS"
+
+            )
+          ] }}
+      loop: "{{ ansible_mounts }}"
+      when:
+        - item.fstype is search('^nfs')
+        - item.device is search(fstab_host_pattern)
+
+    - name: Collect CIFS mounts (text format)
+      set_fact:
+        mount_inventory_lines: >-
+          {{ mount_inventory_lines + [
+            "%-30s %-80s %-30s %s" | format(
+              inventory_hostname,
+              item.device,
+              item.mount,
+              "CIFS"
+            )
+          ] }}
+      loop: "{{ ansible_mounts }}"
+      when:
+        - item.fstype == 'cifs'
+        - item.device is search(fstab_host_pattern)
+
+    # -------------------------------------------------
+    # Global aggregation (run once, safe)
+    # -------------------------------------------------
+    - name: Aggregate inventory lines on localhost
+      run_once: true
+      delegate_to: localhost
+      become: false
+      copy:
+        dest: "{{ playbook_dir }}//mount_inventory_{{ ansible_date_time.date }}_{{ ansible_date_time.time | replace(':','-') }}.txt"
+        content: |
+          SERVER                         SHARE                                                                            MOUNTPOINT                     TYPE
+          {% for h in ansible_play_hosts %}
+          {% for line in hostvars[h].mount_inventory_lines | default([]) %}
+          {{ line }}
+          {% endfor %}
+          {% endfor %}
