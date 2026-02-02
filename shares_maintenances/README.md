@@ -1,16 +1,15 @@
 # Shares_maintenances
 
-Toolkit basado en Ansible para '''inspeccionar, montar, desmontar y mantener shares NFS y CIFS'''
-en múltiples hosts Linux de forma segura, controlada y auditable.
+Toolkit basado en Ansible para '''inspeccionar, montar, desmontar y mantener shares NFS y CIFS'''en múltiples hosts Linux de forma segura, controlada y auditable.
 
-Este repositorio está diseñado para '''tareas operativas''', '''ventanas de mantenimiento''' y
-'''auditorías de infraestructura''', con una clara separación de responsabilidades.
+Este repositorio está diseñado para '''tareas operativas''', '''ventanas de mantenimiento''' y '''auditorías de infraestructura''', con una clara separación de responsabilidades.
 
 ----
 
 ## Estructura del repositorio
 
-```shares_maintenances
+```
+shares_maintenances
 ├── Checks
 │   ├── mount_state_snapshot.yml
 │   ├── mount_inventory_menu.sh
@@ -72,8 +71,7 @@ fstab_host_pattern: "SOURCEA|SOURCEB|SOURCEC"
 ansible-playbook -i $your_inventory Checks/mount_state_snapshot.yml
 ```
 
-#### Salida 
-
+#### Output 
 ```
 mount_inventory_YYYY-MM-DD_HH-MM-SS.txt
 ```
@@ -109,7 +107,7 @@ basándose en el filtrado por origen.
 
 Genera automáticamente la variable de Ansible <code>fstab_host_pattern</code> a partir de un fichero de inventario de mounts.
 
-##### Uso ====
+##### Uso 
 
 ```bash
 cd Umount/
@@ -118,7 +116,7 @@ chmod +x generate_variable_host_pattern.s
 ./generate_variable_host_pattern.sh mount_inventory_YYYY-MM-DD_HH-MM-SS.txt
 ```
 
-##### Salida 
+#### Output 
 
 ```yaml
 fstab_host_pattern: "//server|server|192.168.1.80"
